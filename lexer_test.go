@@ -70,7 +70,7 @@ func TestLexIdentCorner(t *testing.T) {
 
 // test number literals
 func TestLexNumberLiterals(t *testing.T) {
-	tokens := LexExp("(123 abc def 456.789 .012)")
+	tokens := LexExp("(123 abc def 456.789 .012 345)")
 	expectedTokens := []*Token{
 		NewTokenString(TokenLParen, "("),
 		NewTokenString(TokenIntLiteral, "123"),
@@ -78,6 +78,7 @@ func TestLexNumberLiterals(t *testing.T) {
 		NewTokenString(TokenIdent, "def"),
 		NewTokenString(TokenFloatLiteral, "456.789"),
 		NewTokenString(TokenFloatLiteral, ".012"),
+		NewTokenString(TokenIntLiteral, "345"),
 		NewTokenString(TokenRParen, ")")}
 	checkTokens(tokens, expectedTokens, t)
 }
