@@ -27,6 +27,8 @@ To summarize Schego's (planned) feature set in a quick bullet point list:
 * R7RS SLib (https://github.com/petercrlane/r7rs-libs) compatibility
 * Hyrbrid JIT backend targeting x86-64/amd64 and maybe possibly some ARM devices down the road
 * libschego build target allowing embedding into almost any Go application
+* STM (Software Transactional Memory) multitasking model, possibly the first of its kind
+  in Scheme
 
 
 Why?
