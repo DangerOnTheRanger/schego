@@ -98,9 +98,18 @@ func LexExp(input string) []*Token {
 	// characters that can be used in an ident asides from ., which has meaning outside
 	// idents
 	specialInitials := "!$%&*/:<=>?^_~"
+	// flag as to whether or not the | character has taken effect
+	// anything enclosed within | | is a valid ident in R7RS
+	identOverride := false
 	for index, glyphRune := range input {
 		glyph := string(glyphRune)
-		if unicode.IsSpace(glyphRune) {
+		if identOverride == true {
+			accumulatorBuffer.WriteString(glyph)
+			if glyph == "|" {
+				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
+				accumulating = false
+			}
+		} else if unicode.IsSpace(glyphRune) {
 			// flush the accumulator if we were trying to accumulate beforehand
 			// no multi-char token accepts a space
 			if accumulating == true {
@@ -121,6 +130,15 @@ func LexExp(input string) []*Token {
 				accumulating = false
 			}
 			tokens = append(tokens, NewTokenString(TokenRParen, glyph))
+		} else if glyph == "|" {
+			if accumulating == true && accumulatingType != TokenIdent {
+				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
+			} else if accumulating == false {
+				identOverride = true
+			}
+			accumulating = true
+			accumulatorBuffer.WriteString(glyph)
+			accumulatingType = TokenIdent
 		} else if glyph == "." {
 			// . is a valid character in an ident - add it to the accumulator
 			// if we were building an ident
