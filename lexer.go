@@ -2,6 +2,9 @@ package schego
 
 import (
 	"bytes"
+	"encoding/binary"
+	"math"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -43,13 +46,34 @@ func NewTokenRaw(tokenType TokenType, tokenBuffer bytes.Buffer) *Token {
 	return &token
 }
 
+// bufferStringToNum takes an input buffer and converts it from a string of
+// character bytes to a float/int
+func bufferStringToNum(tokenType TokenType, inputBuffer bytes.Buffer) *bytes.Buffer {
+	bufferString := inputBuffer.String()
+	var byteBuffer [binary.MaxVarintLen64]byte
+	if tokenType == TokenFloatLiteral {
+		num, _ := strconv.ParseFloat(bufferString, 64)
+		binary.LittleEndian.PutUint64(byteBuffer[:], math.Float64bits(num))
+	} else {
+		num, _ := strconv.ParseInt(bufferString, 10, 64)
+		binary.PutVarint(byteBuffer[:], num)
+	}
+	returnBuffer := bytes.NewBuffer(byteBuffer[:])
+	return returnBuffer
+}
+
 // flushAccumulator empties the contents of the given Buffer into a new Token
 // and resets it and the accumulator token type. A convenience function for LexExp.
 func flushAccumulator(
 	accumulatorType *TokenType,
 	accumulatorBuffer *bytes.Buffer,
 	tokenBuffer *[]*Token) {
-	*tokenBuffer = append(*tokenBuffer, NewTokenRaw(*accumulatorType, *accumulatorBuffer))
+	if *accumulatorType == TokenFloatLiteral || *accumulatorType == TokenIntLiteral {
+		convertedBuffer := bufferStringToNum(*accumulatorType, *accumulatorBuffer)
+		*tokenBuffer = append(*tokenBuffer, NewTokenRaw(*accumulatorType, *convertedBuffer))
+	} else {
+		*tokenBuffer = append(*tokenBuffer, NewTokenRaw(*accumulatorType, *accumulatorBuffer))
+	}
 	accumulatorBuffer.Reset()
 	*accumulatorType = TokenNone
 }

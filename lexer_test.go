@@ -1,31 +1,62 @@
 package schego
 
 import (
+	"encoding/binary"
+	"fmt"
+	"math"
 	"testing"
 )
 
-// convenience function to grab the value of the underlying byte buffer of a token
+// convenience functions to grab the value of the underlying byte buffer of a token
+func getProperValue(input *Token) string {
+	if input.Type == TokenIdent {
+		return getStringValue(input)
+	} else if input.Type == TokenIntLiteral {
+		convertedNum := getIntValue(input)
+		return fmt.Sprint(convertedNum)
+	} else if input.Type == TokenFloatLiteral {
+		convertedNum := getFloatValue(input)
+		return fmt.Sprint(convertedNum)
+	} else {
+		return getStringValue(input)
+	}
+}
 func getStringValue(input *Token) string {
 	return input.Value.String()
 }
+func getIntValue(input *Token) int64 {
+	num, _ := binary.Varint(input.Value.Bytes())
+	return num
+}
+func getFloatValue(input *Token) float64 {
+	bits := binary.LittleEndian.Uint64(input.Value.Bytes())
+	return math.Float64frombits(bits)
+}
 
-func compareTokens(first *Token, second *Token) bool {
+func NewTokenNum(tokenType TokenType, tokenString string) *Token {
+	token := NewTokenString(tokenType, tokenString)
+	token.Value = *bufferStringToNum(tokenType, token.Value)
+	return token
+}
+
+func equalTokens(first *Token, second *Token) bool {
 	if first.Type != second.Type {
 		return false
-	} else if getStringValue(first) != getStringValue(second) {
-		return false
-	} else {
+	} else if getProperValue(first) == getProperValue(second) {
 		return true
+	} else {
+		return false
 	}
 }
 
 func checkTokens(tokens []*Token, expectedTokens []*Token, t *testing.T) {
 	for index, token := range tokens {
 		expected := expectedTokens[index]
-		if compareTokens(token, expected) == false {
+		if equalTokens(token, expected) == false {
 			t.Error("Incorrect token, got",
-				getStringValue(token), "expected",
-				getStringValue(expected))
+				getProperValue(token),
+				"expected",
+				getProperValue(expected))
 		}
 	}
 }
@@ -73,12 +104,12 @@ func TestLexNumberLiterals(t *testing.T) {
 	tokens := LexExp("(123 abc def 456.789 .012 345)")
 	expectedTokens := []*Token{
 		NewTokenString(TokenLParen, "("),
-		NewTokenString(TokenIntLiteral, "123"),
+		NewTokenNum(TokenIntLiteral, "123"),
 		NewTokenString(TokenIdent, "abc"),
 		NewTokenString(TokenIdent, "def"),
-		NewTokenString(TokenFloatLiteral, "456.789"),
-		NewTokenString(TokenFloatLiteral, ".012"),
-		NewTokenString(TokenIntLiteral, "345"),
+		NewTokenNum(TokenFloatLiteral, "456.789"),
+		NewTokenNum(TokenFloatLiteral, ".012"),
+		NewTokenNum(TokenIntLiteral, "345"),
 		NewTokenString(TokenRParen, ")")}
 	checkTokens(tokens, expectedTokens, t)
 }
