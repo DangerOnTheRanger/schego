@@ -116,11 +116,27 @@ func TestLexNumberLiterals(t *testing.T) {
 
 // test special characters
 func TestIdentSpecial(t *testing.T) {
-	tokens := LexExp("ab.c . d|ef? |gh i|")
+	tokens := LexExp("ab.c . d|ef? |gh +i|")
 	expectedTokens := []*Token{
 		NewTokenString(TokenIdent, "ab.c"),
 		NewTokenString(TokenDot, "."),
 		NewTokenString(TokenIdent, "d|ef?"),
-		NewTokenString(TokenIdent, "|gh i|")}
+		NewTokenString(TokenIdent, "|gh +i|")}
+	checkTokens(tokens, expectedTokens, t)
+}
+
+// test operators
+func TestOps(t *testing.T) {
+	tokens := LexExp("(* (+ 10 3.2) 5)")
+	expectedTokens := []*Token{
+		NewTokenString(TokenLParen, "("),
+		NewTokenString(TokenOp, "*"),
+		NewTokenString(TokenLParen, "("),
+		NewTokenString(TokenOp, "+"),
+		NewTokenNum(TokenIntLiteral, "10"),
+		NewTokenNum(TokenFloatLiteral, "3.2"),
+		NewTokenString(TokenRParen, ")"),
+		NewTokenNum(TokenIntLiteral, "5"),
+		NewTokenString(TokenRParen, ")")}
 	checkTokens(tokens, expectedTokens, t)
 }

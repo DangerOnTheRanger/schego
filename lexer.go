@@ -19,6 +19,7 @@ const (
 	TokenIntLiteral
 	TokenFloatLiteral
 	TokenDot
+	TokenOp
 	TokenChar
 )
 
@@ -101,6 +102,8 @@ func LexExp(input string) []*Token {
 	// flag as to whether or not the | character has taken effect
 	// anything enclosed within | | is a valid ident in R7RS
 	identOverride := false
+	// operator characters
+	operatorChars := "+-/*<=>"
 	for index, glyphRune := range input {
 		glyph := string(glyphRune)
 		if identOverride == true {
@@ -130,6 +133,10 @@ func LexExp(input string) []*Token {
 				accumulating = false
 			}
 			tokens = append(tokens, NewTokenString(TokenRParen, glyph))
+			// only identify operators if they're alone
+		} else if strings.ContainsAny(glyph, operatorChars) && accumulating == false {
+			tokens = append(tokens, NewTokenString(TokenOp, glyph))
+			// idents delimited with | can contain pretty much any character
 		} else if glyph == "|" {
 			if accumulating == true && accumulatingType != TokenIdent {
 				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
