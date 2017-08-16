@@ -127,8 +127,11 @@ func TestIdentSpecial(t *testing.T) {
 
 // test operators
 func TestOps(t *testing.T) {
-	tokens := LexExp("(* (+ 10 3.2) 5)")
+	tokens := LexExp("(>= 150 (* (+ 10 3.2) 5))")
 	expectedTokens := []*Token{
+		NewTokenString(TokenLParen, "("),
+		NewTokenString(TokenOp, ">="),
+		NewTokenNum(TokenIntLiteral, "150"),
 		NewTokenString(TokenLParen, "("),
 		NewTokenString(TokenOp, "*"),
 		NewTokenString(TokenLParen, "("),
@@ -137,6 +140,7 @@ func TestOps(t *testing.T) {
 		NewTokenNum(TokenFloatLiteral, "3.2"),
 		NewTokenString(TokenRParen, ")"),
 		NewTokenNum(TokenIntLiteral, "5"),
+		NewTokenString(TokenRParen, ")"),
 		NewTokenString(TokenRParen, ")")}
 	checkTokens(tokens, expectedTokens, t)
 }

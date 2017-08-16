@@ -133,9 +133,25 @@ func LexExp(input string) []*Token {
 				accumulating = false
 			}
 			tokens = append(tokens, NewTokenString(TokenRParen, glyph))
-			// only identify operators if they're alone
-		} else if strings.ContainsAny(glyph, operatorChars) && accumulating == false {
-			tokens = append(tokens, NewTokenString(TokenOp, glyph))
+			// identify any operators
+			// normally they'll be a single character, but >= and <= aren't
+		} else if strings.ContainsAny(glyph, operatorChars) && (accumulatingType == TokenOp || accumulatingType == TokenNone) {
+			// handle >= and <= correctly
+			if (glyph == ">" || glyph == "<") && (peek(input, index) == '=') {
+				accumulating = true
+				accumulatingType = TokenOp
+				accumulatorBuffer.WriteString(glyph)
+			} else {
+				// did we already accumulate > or < and are now on =?
+				if accumulating == true && glyph == "=" {
+					accumulatorBuffer.WriteString(glyph)
+					flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
+					accumulating = false
+				} else {
+					// simplest case if we found a single-character op, just inject it directly
+					tokens = append(tokens, NewTokenString(TokenOp, glyph))
+				}
+			}
 			// idents delimited with | can contain pretty much any character
 		} else if glyph == "|" {
 			if accumulating == true && accumulatingType != TokenIdent {
