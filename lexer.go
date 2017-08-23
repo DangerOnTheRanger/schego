@@ -119,6 +119,10 @@ func LexExp(input string) []*Token {
 				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
 				accumulating = false
 			}
+			// flush the accumulator for newlines, as well
+		} else if glyph == "\n" {
+			flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
+			accumulating = false
 			// lparen
 		} else if glyph == "(" {
 			if accumulating == true {
@@ -205,7 +209,7 @@ func LexExp(input string) []*Token {
 			accumulatorBuffer.WriteString(glyph)
 		}
 	}
-	// corner case if the input string ends with an ident
+	// corner case if the input string while we're still accumulating
 	// should never happen in proper Scheme, but still...
 	if accumulating == true {
 		tokens = append(tokens, NewTokenRaw(accumulatingType, accumulatorBuffer))

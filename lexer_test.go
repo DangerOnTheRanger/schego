@@ -90,6 +90,18 @@ func TestLexNestedExp(t *testing.T) {
 	checkTokens(tokens, expectedTokens, t)
 }
 
+// test to make sure whitespace is properly ignored
+func TestIgnoreExtraWhitespace(t *testing.T) {
+	tokens := LexExp("( ab   cd efg)")
+	expectedTokens := []*Token{
+		NewTokenString(TokenLParen, "("),
+		NewTokenString(TokenIdent, "ab"),
+		NewTokenString(TokenIdent, "cd"),
+		NewTokenString(TokenIdent, "efg"),
+		NewTokenString(TokenRParen, ")")}
+	checkTokens(tokens, expectedTokens, t)
+}
+
 // test corner case where the is no closing rparen and only EOL/EOF
 func TestLexIdentCorner(t *testing.T) {
 	tokens := LexExp("(abc")
@@ -141,6 +153,18 @@ func TestOps(t *testing.T) {
 		NewTokenString(TokenRParen, ")"),
 		NewTokenNum(TokenIntLiteral, "5"),
 		NewTokenString(TokenRParen, ")"),
+		NewTokenString(TokenRParen, ")")}
+	checkTokens(tokens, expectedTokens, t)
+}
+
+// test newline
+func TestNewline(t *testing.T) {
+	tokens := LexExp("(ab\ncd\nef)")
+	expectedTokens := []*Token{
+		NewTokenString(TokenLParen, "("),
+		NewTokenString(TokenIdent, "ab"),
+		NewTokenString(TokenIdent, "cd"),
+		NewTokenString(TokenIdent, "ef"),
 		NewTokenString(TokenRParen, ")")}
 	checkTokens(tokens, expectedTokens, t)
 }
