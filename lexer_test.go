@@ -9,9 +9,7 @@ import (
 
 // convenience functions to grab the value of the underlying byte buffer of a token
 func getProperValue(input *Token) string {
-	if input.Type == TokenIdent {
-		return getStringValue(input)
-	} else if input.Type == TokenIntLiteral {
+	if input.Type == TokenIntLiteral {
 		convertedNum := getIntValue(input)
 		return fmt.Sprint(convertedNum)
 	} else if input.Type == TokenFloatLiteral {
