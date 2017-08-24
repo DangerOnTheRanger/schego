@@ -207,6 +207,9 @@ func LexExp(input string) []*Token {
 				accumulatingType = TokenIntLiteral
 			}
 			accumulatorBuffer.WriteString(glyph)
+			// we're not sure what this character is, let the parser deal with it
+		} else {
+			tokens = append(tokens, NewTokenString(TokenChar, glyph))
 		}
 	}
 	// corner case if the input string while we're still accumulating
