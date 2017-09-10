@@ -215,8 +215,7 @@ func LexExp(input string) []*Token {
 	// corner case if the input string while we're still accumulating
 	// should never happen in proper Scheme, but still...
 	if accumulating == true {
-		tokens = append(tokens, NewTokenRaw(accumulatingType, accumulatorBuffer))
-		accumulatorBuffer.Reset()
+		flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
 		accumulating = false
 	}
 	return tokens

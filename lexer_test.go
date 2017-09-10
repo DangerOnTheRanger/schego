@@ -166,3 +166,10 @@ func TestNewline(t *testing.T) {
 		NewTokenString(TokenRParen, ")")}
 	checkTokens(tokens, expectedTokens, t)
 }
+
+// test to make sure single-constant expressions are lexed/converted correctly
+func TestSingleFloat(t *testing.T) {
+	tokens := LexExp("3.14")
+	expectedTokens := []*Token{NewTokenNum(TokenFloatLiteral, "3.14")}
+	checkTokens(tokens, expectedTokens, t)
+}
