@@ -35,3 +35,10 @@ func TestMultipleExp(t *testing.T) {
 	expectedProgram := NewProgram(NewAddExp(NewIntLiteral(3), NewIntLiteral(4)), NewAddExp(NewIntLiteral(5), NewIntLiteral(6)))
 	checkProgram(program, expectedProgram, t)
 }
+
+func TestParseFloatExp(t *testing.T) {
+	tokens := LexExp("(+ 2.718 3.145)")
+	program := ParseTokens(tokens)
+	expectedProgram := NewProgram(NewAddExp(NewFloatLiteral(2.718), NewFloatLiteral(3.145)))
+	checkProgram(program, expectedProgram, t)
+}

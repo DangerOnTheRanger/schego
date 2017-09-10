@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math"
 	"strconv"
 )
 
@@ -13,6 +14,7 @@ const (
 	ProgramNode AstNodeType = iota
 	AddNode
 	IntNode
+	FloatNode
 )
 
 // base interface for functions needing to accept any kind of AST node
@@ -84,6 +86,23 @@ func (i IntLiteral) DebugString() string {
 	return strconv.FormatInt(i.Value, 10)
 }
 
+type FloatLiteral struct {
+	SExp
+	Value float64
+}
+
+func NewFloatLiteral(value float64) *FloatLiteral {
+	node := new(FloatLiteral)
+	node.Value = value
+	return node
+}
+func (f FloatLiteral) GetType() AstNodeType {
+	return FloatNode
+}
+func (f FloatLiteral) DebugString() string {
+	return strconv.FormatFloat(f.Value, 'g', -1, 64)
+}
+
 // ParseTokens takes tokens and returns an AST (Abstract Syntax Tree) representation
 func ParseTokens(tokens []*Token) *Program {
 	program := NewProgram()
@@ -124,6 +143,9 @@ func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
 	if accept(tokens, TokenIntLiteral, currentIndex) {
 		literal := grabAccepted(tokens, currentIndex)
 		return NewIntLiteral(bufferToInt(literal.Value)), nil
+	} else if accept(tokens, TokenFloatLiteral, currentIndex) {
+		literal := grabAccepted(tokens, currentIndex)
+		return NewFloatLiteral(bufferToFloat(literal.Value)), nil
 	}
 	// not a literal, attempt to parse an expression
 	lparenError := expect(tokens, TokenLParen, currentIndex)
@@ -172,4 +194,8 @@ func closeExp(tokens []*Token, currentIndex *int) error {
 func bufferToInt(buffer bytes.Buffer) int64 {
 	num, _ := binary.Varint(buffer.Bytes())
 	return num
+}
+func bufferToFloat(buffer bytes.Buffer) float64 {
+	bits := binary.LittleEndian.Uint64(buffer.Bytes())
+	return math.Float64frombits(bits)
 }
