@@ -18,9 +18,18 @@ const (
 	TokenIdent
 	TokenIntLiteral
 	TokenFloatLiteral
+	TokenStringLiteral
 	TokenDot
 	TokenOp
 	TokenChar
+)
+
+type overrideType int
+
+const (
+	overrideNone overrideType = iota
+	overrideIdent
+	overrideString
 )
 
 type Token struct {
@@ -101,16 +110,25 @@ func LexExp(input string) []*Token {
 	specialInitials := "!$%&*/:<=>?^_~"
 	// flag as to whether or not the | character has taken effect
 	// anything enclosed within | | is a valid ident in R7RS
-	identOverride := false
+	overrideState := overrideNone
 	// operator characters
 	operatorChars := "+-/*<=>"
 	for index, glyphRune := range input {
 		glyph := string(glyphRune)
-		if identOverride == true {
+		if overrideState == overrideIdent {
 			accumulatorBuffer.WriteString(glyph)
 			if glyph == "|" {
 				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
 				accumulating = false
+				overrideState = overrideNone
+			}
+		} else if overrideState == overrideString {
+			if glyph == "\"" {
+				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
+				accumulating = false
+				overrideState = overrideNone
+			} else {
+				accumulatorBuffer.WriteString(glyph)
 			}
 		} else if unicode.IsSpace(glyphRune) {
 			// flush the accumulator if we were trying to accumulate beforehand
@@ -137,6 +155,15 @@ func LexExp(input string) []*Token {
 				accumulating = false
 			}
 			tokens = append(tokens, NewTokenString(TokenRParen, glyph))
+			// opening " of a string literal
+			// the overrideState stuff takes care of the closing "
+		} else if glyph == "\"" {
+			if accumulating == true {
+				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
+			}
+			accumulating = true
+			accumulatingType = TokenStringLiteral
+			overrideState = overrideString
 			// identify any operators
 			// normally they'll be a single character, but >= and <= aren't
 		} else if strings.ContainsAny(glyph, operatorChars) && (accumulatingType == TokenOp || accumulatingType == TokenNone) {
@@ -158,10 +185,10 @@ func LexExp(input string) []*Token {
 			}
 			// idents delimited with | can contain pretty much any character
 		} else if glyph == "|" {
-			if accumulating == true && accumulatingType != TokenIdent {
+			if accumulating == true && accumulatingType != TokenIdent && accumulatingType != TokenStringLiteral {
 				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
 			} else if accumulating == false {
-				identOverride = true
+				overrideState = overrideIdent
 			}
 			accumulating = true
 			accumulatorBuffer.WriteString(glyph)

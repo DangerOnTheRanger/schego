@@ -23,6 +23,7 @@ const (
 	EqNode
 	IntNode
 	FloatNode
+	StringNode
 )
 
 // base interface for functions needing to accept any kind of AST node
@@ -247,6 +248,23 @@ func (f FloatLiteral) DebugString() string {
 	return strconv.FormatFloat(f.Value, 'g', -1, 64)
 }
 
+type StringLiteral struct {
+	SExp
+	Value string
+}
+
+func NewStringLiteral(value string) *StringLiteral {
+	node := new(StringLiteral)
+	node.Value = value
+	return node
+}
+func (s StringLiteral) GetType() AstNodeType {
+	return StringNode
+}
+func (s StringLiteral) DebugString() string {
+	return "\"" + s.Value + "\""
+}
+
 // ParseTokens takes tokens and returns an AST (Abstract Syntax Tree) representation
 func ParseTokens(tokens []*Token) *Program {
 	program := NewProgram()
@@ -290,6 +308,9 @@ func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
 	} else if accept(tokens, TokenFloatLiteral, currentIndex) {
 		literal := grabAccepted(tokens, currentIndex)
 		return NewFloatLiteral(bufferToFloat(literal.Value)), nil
+	} else if accept(tokens, TokenStringLiteral, currentIndex) {
+		literal := grabAccepted(tokens, currentIndex)
+		return NewStringLiteral(literal.Value.String()), nil
 	}
 	// not a literal, attempt to parse an expression
 	lparenError := expect(tokens, TokenLParen, currentIndex)

@@ -173,3 +173,10 @@ func TestSingleFloat(t *testing.T) {
 	expectedTokens := []*Token{NewTokenNum(TokenFloatLiteral, "3.14")}
 	checkTokens(tokens, expectedTokens, t)
 }
+
+// test string literals
+func TestString(t *testing.T) {
+	tokens := LexExp("\"la li lu le lo\"")
+	expectedTokens := []*Token{NewTokenString(TokenStringLiteral, "la li lu le lo")}
+	checkTokens(tokens, expectedTokens, t)
+}

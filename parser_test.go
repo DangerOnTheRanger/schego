@@ -63,3 +63,10 @@ func TestEqExp(t *testing.T) {
 	expectedProgram := NewProgram(NewEqExp(NewLtExp(NewIntLiteral(3), NewIntLiteral(3)), NewGteExp(NewIntLiteral(1), NewIntLiteral(9))))
 	checkProgram(program, expectedProgram, t)
 }
+
+func TestStringLiteralExp(t *testing.T) {
+	tokens := LexExp("(+ \"la li \" \"lu le lo\")")
+	program := ParseTokens(tokens)
+	expectedProgram := NewProgram(NewAddExp(NewStringLiteral("la li "), NewStringLiteral("lu le lo")))
+	checkProgram(program, expectedProgram, t)
+}
