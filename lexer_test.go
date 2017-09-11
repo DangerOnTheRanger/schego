@@ -1,6 +1,7 @@
 package schego
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -178,5 +179,15 @@ func TestSingleFloat(t *testing.T) {
 func TestString(t *testing.T) {
 	tokens := LexExp("\"la li lu le lo\"")
 	expectedTokens := []*Token{NewTokenString(TokenStringLiteral, "la li lu le lo")}
+	checkTokens(tokens, expectedTokens, t)
+}
+
+// test bool literals
+func TestBool(t *testing.T) {
+	tokens := LexExp("#t #f bla")
+	expectedTokens := []*Token{
+		NewTokenRaw(TokenBoolLiteral, *bytes.NewBuffer([]byte{1})),
+		NewTokenRaw(TokenBoolLiteral, *bytes.NewBuffer([]byte{0})),
+		NewTokenString(TokenIdent, "bla")}
 	checkTokens(tokens, expectedTokens, t)
 }

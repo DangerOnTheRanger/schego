@@ -19,6 +19,7 @@ const (
 	TokenIntLiteral
 	TokenFloatLiteral
 	TokenStringLiteral
+	TokenBoolLiteral
 	TokenDot
 	TokenOp
 	TokenChar
@@ -206,6 +207,27 @@ func LexExp(input string) []*Token {
 				// there's situations where a standalone . is valid
 			} else {
 				tokens = append(tokens, NewTokenString(TokenDot, glyph))
+			}
+			// boolean literals
+		} else if glyph == "#" || (accumulating == true && accumulatingType == TokenBoolLiteral) {
+			// make sure we didn't find a standalone #
+			if chr := peek(input, index); chr == 't' || chr == 'f' {
+				// semi-hacky way way of using the accumulator buffer to skip processing
+				// of the current glyph
+				accumulating = true
+				accumulatingType = TokenBoolLiteral
+			} else if accumulating == true {
+				// represent true as 1 and false as 0 (doh)
+				if glyph == "t" {
+					accumulatorBuffer.WriteByte(1)
+				} else {
+					accumulatorBuffer.WriteByte(0)
+				}
+				flushAccumulator(&accumulatingType, &accumulatorBuffer, &tokens)
+				accumulating = false
+			} else {
+				// handle the case of just having a # hanging out all by itself
+				tokens = append(tokens, NewTokenString(TokenChar, glyph))
 			}
 			// ident
 		} else if unicode.IsLetter(glyphRune) {
