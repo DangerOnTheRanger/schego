@@ -70,3 +70,17 @@ func TestStringLiteralExp(t *testing.T) {
 	expectedProgram := NewProgram(NewAddExp(NewStringLiteral("la li "), NewStringLiteral("lu le lo")))
 	checkProgram(program, expectedProgram, t)
 }
+
+func TestBoolLiteralExp(t *testing.T) {
+	tokens := LexExp("(= #t #f)")
+	program := ParseTokens(tokens)
+	expectedProgram := NewProgram(NewEqExp(NewBoolLiteral(true), NewBoolLiteral(false)))
+	checkProgram(program, expectedProgram, t)
+}
+
+func TestIfExp(t *testing.T) {
+	tokens := LexExp("(if (> 6 5) \"true\" \"false\")")
+	program := ParseTokens(tokens)
+	expectedProgram := NewProgram(NewIfExp(NewGtExp(NewIntLiteral(6), NewIntLiteral(5)), NewStringLiteral("true"), NewStringLiteral("false")))
+	checkProgram(program, expectedProgram, t)
+}

@@ -21,9 +21,11 @@ const (
 	GteNode
 	LteNode
 	EqNode
+	IfNode
 	IntNode
 	FloatNode
 	StringNode
+	BoolNode
 )
 
 // base interface for functions needing to accept any kind of AST node
@@ -214,6 +216,24 @@ func (e EqExp) DebugString() string {
 	return "EqExp(" + e.subNodes[0].DebugString() + ", " + e.subNodes[1].DebugString() + ")"
 }
 
+type IfExp struct {
+	SExp
+}
+
+func NewIfExp(cond AstNode, onTrue AstNode, onFalse AstNode) *IfExp {
+	node := new(IfExp)
+	node.AddSubNode(cond)
+	node.AddSubNode(onTrue)
+	node.AddSubNode(onFalse)
+	return node
+}
+func (i IfExp) GetType() AstNodeType {
+	return IfNode
+}
+func (i IfExp) DebugString() string {
+	return "IfExp(" + i.subNodes[0].DebugString() + ", " + i.subNodes[1].DebugString() + ", " + i.subNodes[2].DebugString() + ")"
+}
+
 type IntLiteral struct {
 	SExp
 	Value int64
@@ -265,6 +285,23 @@ func (s StringLiteral) DebugString() string {
 	return "\"" + s.Value + "\""
 }
 
+type BoolLiteral struct {
+	SExp
+	Value bool
+}
+
+func NewBoolLiteral(value bool) *BoolLiteral {
+	node := new(BoolLiteral)
+	node.Value = value
+	return node
+}
+func (b BoolLiteral) GetType() AstNodeType {
+	return BoolNode
+}
+func (b BoolLiteral) DebugString() string {
+	return strconv.FormatBool(b.Value)
+}
+
 // ParseTokens takes tokens and returns an AST (Abstract Syntax Tree) representation
 func ParseTokens(tokens []*Token) *Program {
 	program := NewProgram()
@@ -311,6 +348,9 @@ func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
 	} else if accept(tokens, TokenStringLiteral, currentIndex) {
 		literal := grabAccepted(tokens, currentIndex)
 		return NewStringLiteral(literal.Value.String()), nil
+	} else if accept(tokens, TokenBoolLiteral, currentIndex) {
+		literal := grabAccepted(tokens, currentIndex)
+		return NewBoolLiteral(literal.Value.Bytes()[0] == 1), nil
 	}
 	// not a literal, attempt to parse an expression
 	lparenError := expect(tokens, TokenLParen, currentIndex)
@@ -333,6 +373,7 @@ func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
 			return nil, rhsError
 		}
 
+		// what sort of operator node do we want to build?
 		var expNode AstNode
 		switch opToken.Value.String() {
 		case "+":
@@ -361,6 +402,22 @@ func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
 			return nil, expError
 		}
 		return expNode, nil
+	}
+	if accept(tokens, TokenIdent, currentIndex) {
+		identToken := grabAccepted(tokens, currentIndex)
+		switch identToken.Value.String() {
+		case "if":
+			// TODO: error-handling here (and throughout the parser!)
+			cond, _ := parseExpression(tokens, currentIndex)
+			ifTrue, _ := parseExpression(tokens, currentIndex)
+			ifFalse, _ := parseExpression(tokens, currentIndex)
+			ifNode := NewIfExp(cond, ifTrue, ifFalse)
+			expError := closeExp(tokens, currentIndex)
+			if expError != nil {
+				return nil, expError
+			}
+			return ifNode, nil
+		}
 	}
 	// no matches?
 	return nil, errors.New("Unexpected token")
