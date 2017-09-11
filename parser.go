@@ -13,6 +13,14 @@ type AstNodeType int
 const (
 	ProgramNode AstNodeType = iota
 	AddNode
+	SubNode
+	MulNode
+	DivNode
+	GtNode
+	LtNode
+	GteNode
+	LteNode
+	EqNode
 	IntNode
 	FloatNode
 )
@@ -67,6 +75,142 @@ func (a AddExp) GetType() AstNodeType {
 }
 func (a AddExp) DebugString() string {
 	return "AddExp(" + a.subNodes[0].DebugString() + ", " + a.subNodes[1].DebugString() + ")"
+}
+
+type SubExp struct {
+	SExp
+}
+
+func NewSubExp(lhs AstNode, rhs AstNode) *SubExp {
+	node := new(SubExp)
+	node.AddSubNode(lhs)
+	node.AddSubNode(rhs)
+	return node
+}
+func (s SubExp) GetType() AstNodeType {
+	return SubNode
+}
+func (s SubExp) DebugString() string {
+	return "SubExp(" + s.subNodes[0].DebugString() + ", " + s.subNodes[1].DebugString() + ")"
+}
+
+type MulExp struct {
+	SExp
+}
+
+func NewMulExp(lhs AstNode, rhs AstNode) *MulExp {
+	node := new(MulExp)
+	node.AddSubNode(lhs)
+	node.AddSubNode(rhs)
+	return node
+}
+func (m MulExp) GetType() AstNodeType {
+	return MulNode
+}
+func (m MulExp) DebugString() string {
+	return "MulExp(" + m.subNodes[0].DebugString() + ", " + m.subNodes[1].DebugString() + ")"
+}
+
+type DivExp struct {
+	SExp
+}
+
+func NewDivExp(lhs AstNode, rhs AstNode) *DivExp {
+	node := new(DivExp)
+	node.AddSubNode(lhs)
+	node.AddSubNode(rhs)
+	return node
+}
+func (d DivExp) GetType() AstNodeType {
+	return DivNode
+}
+func (d DivExp) DebugString() string {
+	return "DivExp(" + d.subNodes[0].DebugString() + ", " + d.subNodes[1].DebugString() + ")"
+}
+
+type LtExp struct {
+	SExp
+}
+
+func NewLtExp(lhs AstNode, rhs AstNode) *LtExp {
+	node := new(LtExp)
+	node.AddSubNode(lhs)
+	node.AddSubNode(rhs)
+	return node
+}
+func (l LtExp) GetType() AstNodeType {
+	return LtNode
+}
+func (l LtExp) DebugString() string {
+	return "LtExp(" + l.subNodes[0].DebugString() + ", " + l.subNodes[1].DebugString() + ")"
+}
+
+type LteExp struct {
+	SExp
+}
+
+func NewLteExp(lhs AstNode, rhs AstNode) *LteExp {
+	node := new(LteExp)
+	node.AddSubNode(lhs)
+	node.AddSubNode(rhs)
+	return node
+}
+func (l LteExp) GetType() AstNodeType {
+	return LteNode
+}
+func (l LteExp) DebugString() string {
+	return "LteExp(" + l.subNodes[0].DebugString() + ", " + l.subNodes[1].DebugString() + ")"
+}
+
+type GtExp struct {
+	SExp
+}
+
+func NewGtExp(lhs AstNode, rhs AstNode) *GtExp {
+	node := new(GtExp)
+	node.AddSubNode(lhs)
+	node.AddSubNode(rhs)
+	return node
+}
+func (g GtExp) GetType() AstNodeType {
+	return GtNode
+}
+func (g GtExp) DebugString() string {
+	return "GtExp(" + g.subNodes[0].DebugString() + ", " + g.subNodes[1].DebugString() + ")"
+}
+
+type GteExp struct {
+	SExp
+}
+
+func NewGteExp(lhs AstNode, rhs AstNode) *GteExp {
+	node := new(GteExp)
+	node.AddSubNode(lhs)
+	node.AddSubNode(rhs)
+	return node
+}
+func (g GteExp) GetType() AstNodeType {
+	return LteNode
+}
+func (g GteExp) DebugString() string {
+	return "GteExp(" + g.subNodes[0].DebugString() + ", " + g.subNodes[1].DebugString() + ")"
+}
+
+type EqExp struct {
+	SExp
+}
+
+func NewEqExp(lhs AstNode, rhs AstNode) *EqExp {
+	node := new(EqExp)
+	node.AddSubNode(lhs)
+	node.AddSubNode(rhs)
+	return node
+}
+func (e EqExp) GetType() AstNodeType {
+	return EqNode
+}
+func (e EqExp) DebugString() string {
+	return "EqExp(" + e.subNodes[0].DebugString() + ", " + e.subNodes[1].DebugString() + ")"
 }
 
 type IntLiteral struct {
@@ -157,25 +301,45 @@ func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
 	if accept(tokens, TokenOp, currentIndex) {
 		// grab the operator token so we can find out which one it is
 		opToken := grabAccepted(tokens, currentIndex)
-		if opToken.Value.String() == "+" {
-			// parse the left-hand and right hand sides recursively
-			// this also takes care of handling nested expressions
-			lhs, lhsError := parseExpression(tokens, currentIndex)
-			if lhsError != nil {
-				return nil, lhsError
-			}
-			rhs, rhsError := parseExpression(tokens, currentIndex)
-			if rhsError != nil {
-				return nil, rhsError
-			}
-			addNode := NewAddExp(lhs, rhs)
-			// make sure the expression has a closing rparen
-			expError := closeExp(tokens, currentIndex)
-			if expError != nil {
-				return nil, expError
-			}
-			return addNode, nil
+		// parse the left-hand and right hand sides recursively
+		// this also takes care of handling nested expressions
+		lhs, lhsError := parseExpression(tokens, currentIndex)
+		if lhsError != nil {
+			return nil, lhsError
 		}
+		rhs, rhsError := parseExpression(tokens, currentIndex)
+		if rhsError != nil {
+			return nil, rhsError
+		}
+
+		var expNode AstNode
+		switch opToken.Value.String() {
+		case "+":
+			expNode = NewAddExp(lhs, rhs)
+		case "-":
+			expNode = NewSubExp(lhs, rhs)
+		case "*":
+			expNode = NewMulExp(lhs, rhs)
+		case "/":
+			expNode = NewDivExp(lhs, rhs)
+		case "<":
+			expNode = NewLtExp(lhs, rhs)
+		case "<=":
+			expNode = NewLteExp(lhs, rhs)
+		case ">":
+			expNode = NewGtExp(lhs, rhs)
+		case ">=":
+			expNode = NewGteExp(lhs, rhs)
+		case "=":
+			expNode = NewEqExp(lhs, rhs)
+		}
+
+		// make sure the expression has a closing rparen
+		expError := closeExp(tokens, currentIndex)
+		if expError != nil {
+			return nil, expError
+		}
+		return expNode, nil
 	}
 	// no matches?
 	return nil, errors.New("Unexpected token")
