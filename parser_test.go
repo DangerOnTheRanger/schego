@@ -84,3 +84,34 @@ func TestIfExp(t *testing.T) {
 	expectedProgram := NewProgram(NewIfExp(NewGtExp(NewIntLiteral(6), NewIntLiteral(5)), NewStringLiteral("true"), NewStringLiteral("false")))
 	checkProgram(program, expectedProgram, t)
 }
+
+func TestDefineExp(t *testing.T) {
+	tokens := LexExp("(define x 5)")
+	program := ParseTokens(tokens)
+	expectedProgram := NewProgram(NewDefExp("x", NewIntLiteral(5)))
+	checkProgram(program, expectedProgram, t)
+}
+
+func TestLambdaExp(t *testing.T) {
+	tokens := LexExp("(lambda (x y) (= x y))")
+	program := ParseTokens(tokens)
+	expectedProgram := NewProgram(NewLambdaExp([]string{"x", "y"}, NewEqExp(NewIdentExp("x"), NewIdentExp("y"))))
+	checkProgram(program, expectedProgram, t)
+}
+
+func TestDefLambdaExp(t *testing.T) {
+	tokens := LexExp("(define (square x) (* x x))")
+	program := ParseTokens(tokens)
+	expectedProgram := NewProgram(NewDefExp("square", NewLambdaExp([]string{"x"}, NewMulExp(NewIdentExp("x"), NewIdentExp("x")))))
+	checkProgram(program, expectedProgram, t)
+}
+
+func TestDefLambdaLonghandExp(t *testing.T) {
+	shorthandTokens := LexExp("(define (mul x y) (* x y))")
+	shorthandProgram := ParseTokens(shorthandTokens)
+	longhandTokens := LexExp("(define mul (lambda (x y) (* x y)))")
+	longhandProgram := ParseTokens(longhandTokens)
+	expectedProgram := NewProgram(NewDefExp("mul", NewLambdaExp([]string{"x", "y"}, NewMulExp(NewIdentExp("x"), NewIdentExp("y")))))
+	checkProgram(shorthandProgram, expectedProgram, t)
+	checkProgram(longhandProgram, expectedProgram, t)
+}

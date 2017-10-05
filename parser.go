@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
+	"strings"
 )
 
 type AstNodeType int
@@ -22,6 +24,9 @@ const (
 	LteNode
 	EqNode
 	IfNode
+	DefNode
+	LambdaNode
+	IdentNode
 	IntNode
 	FloatNode
 	StringNode
@@ -234,6 +239,61 @@ func (i IfExp) DebugString() string {
 	return "IfExp(" + i.subNodes[0].DebugString() + ", " + i.subNodes[1].DebugString() + ", " + i.subNodes[2].DebugString() + ")"
 }
 
+type DefExp struct {
+	SExp
+	Name string
+}
+
+func NewDefExp(name string, exp AstNode) *DefExp {
+	node := new(DefExp)
+	node.Name = name
+	node.AddSubNode(exp)
+	return node
+}
+func (d DefExp) GetType() AstNodeType {
+	return DefNode
+}
+func (d DefExp) DebugString() string {
+	return "DefExp(" + d.Name + ", " + d.subNodes[0].DebugString() + ")"
+}
+
+type LambdaExp struct {
+	SExp
+	Args []string
+}
+
+func NewLambdaExp(args []string, exp AstNode) *LambdaExp {
+	node := new(LambdaExp)
+	// copy to avoid the fact that the slice refers to data that could and will
+	// get overwritten
+	node.Args = append([]string(nil), args...)
+	node.AddSubNode(exp)
+	return node
+}
+func (l LambdaExp) GetType() AstNodeType {
+	return LambdaNode
+}
+func (l LambdaExp) DebugString() string {
+	return "LambdaExp(" + strings.Trim(fmt.Sprintf("%v", l.Args), "[]") + ", " + l.subNodes[0].DebugString() + ")"
+}
+
+type IdentExp struct {
+	SExp
+	Name string
+}
+
+func NewIdentExp(name string) *IdentExp {
+	node := new(IdentExp)
+	node.Name = name
+	return node
+}
+func (i IdentExp) GetType() AstNodeType {
+	return IdentNode
+}
+func (i IdentExp) DebugString() string {
+	return i.Name
+}
+
 type IntLiteral struct {
 	SExp
 	Value int64
@@ -332,13 +392,13 @@ func expect(tokens []*Token, expectedType TokenType, currentIndex *int) error {
 	if len(tokens)-1 < *currentIndex {
 		return errors.New("Unexpected EOF")
 	} else if tokens[*currentIndex].Type != expectedType {
-		return errors.New("Unexpected token")
+		return errors.New("Unexpected token " + tokens[*currentIndex].Value.String())
 	}
 	return nil
 }
 
 func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
-	// try literals first
+	// try literals/idents first
 	if accept(tokens, TokenIntLiteral, currentIndex) {
 		literal := grabAccepted(tokens, currentIndex)
 		return NewIntLiteral(bufferToInt(literal.Value)), nil
@@ -351,6 +411,9 @@ func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
 	} else if accept(tokens, TokenBoolLiteral, currentIndex) {
 		literal := grabAccepted(tokens, currentIndex)
 		return NewBoolLiteral(literal.Value.Bytes()[0] == 1), nil
+	} else if accept(tokens, TokenIdent, currentIndex) {
+		identToken := grabAccepted(tokens, currentIndex)
+		return NewIdentExp(identToken.Value.String()), nil
 	}
 	// not a literal, attempt to parse an expression
 	lparenError := expect(tokens, TokenLParen, currentIndex)
@@ -417,6 +480,55 @@ func parseExpression(tokens []*Token, currentIndex *int) (AstNode, error) {
 				return nil, expError
 			}
 			return ifNode, nil
+		case "define":
+			// are we attempting to define a function?
+			if accept(tokens, TokenLParen, currentIndex) {
+				nameError := expect(tokens, TokenIdent, currentIndex)
+				if nameError != nil {
+					return nil, nameError
+				}
+				accept(tokens, TokenIdent, currentIndex)
+				funcName := grabAccepted(tokens, currentIndex).Value.String()
+				funcArgs, _ := parseArgs(tokens, currentIndex)
+				lambdaExp, _ := parseExpression(tokens, currentIndex)
+				expError := closeExp(tokens, currentIndex)
+				if expError != nil {
+					return nil, expError
+				}
+				lambdaNode := NewLambdaExp(funcArgs, lambdaExp)
+				defNode := NewDefExp(funcName, lambdaNode)
+				return defNode, nil
+			} else {
+				// defining something besides a function
+				nameError := expect(tokens, TokenIdent, currentIndex)
+				if nameError != nil {
+					return nil, nameError
+				}
+				accept(tokens, TokenIdent, currentIndex)
+				name := grabAccepted(tokens, currentIndex)
+				// this handles longhand lambda definitions too
+				newExp, _ := parseExpression(tokens, currentIndex)
+				expError := closeExp(tokens, currentIndex)
+				if expError != nil {
+					return nil, expError
+				}
+				defNode := NewDefExp(name.Value.String(), newExp)
+				return defNode, nil
+			}
+		case "lambda":
+			lparenError := expect(tokens, TokenLParen, currentIndex)
+			if lparenError != nil {
+				return nil, lparenError
+			}
+			*currentIndex++
+			lambdaArgs, _ := parseArgs(tokens, currentIndex)
+			lambdaExp, _ := parseExpression(tokens, currentIndex)
+			expError := closeExp(tokens, currentIndex)
+			if expError != nil {
+				return nil, expError
+			}
+			lambdaNode := NewLambdaExp(lambdaArgs, lambdaExp)
+			return lambdaNode, nil
 		}
 	}
 	// no matches?
@@ -431,6 +543,24 @@ func closeExp(tokens []*Token, currentIndex *int) error {
 	}
 	*currentIndex += 1
 	return nil
+}
+
+// convenience function to parse the argument list for a function/lambda
+func parseArgs(tokens []*Token, currentIndex *int) ([]string, error) {
+	funcArgs := make([]string, 0)
+	for {
+		if accept(tokens, TokenIdent, currentIndex) {
+			arg := grabAccepted(tokens, currentIndex).Value.String()
+			funcArgs = append(funcArgs, arg)
+		} else {
+			expError := closeExp(tokens, currentIndex)
+			if expError != nil {
+				return nil, expError
+			}
+			break
+		}
+	}
+	return funcArgs, nil
 }
 
 func bufferToInt(buffer bytes.Buffer) int64 {
