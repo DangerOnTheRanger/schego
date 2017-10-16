@@ -49,7 +49,7 @@ func TestHelloWorld(t *testing.T) {
 	console := DummyConsole{}
 	retcode := RunVM(opcodes, &console)
 	if retcode != 0 {
-		t.Error("Expected return code of 0, got %d\n", retcode)
+		t.Error("Expected return code of 0, got:\n", retcode)
 	}
 	if console.consoleOutput != "Hello, World!\n" {
 		t.Error("Incorrect output, got: ", console.consoleOutput)
