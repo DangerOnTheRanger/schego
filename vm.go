@@ -149,9 +149,7 @@ func (v *VMState) Step() {
 				// at some point in the future
 				codepointLength = 4
 			}
-
-			// subtract 1 since we read 1 byte already (firstByte)
-			extraBytes := v.ReadBytes(codepointLength - 1)
+			extraBytes := v.ReadBytes(codepointLength)
 			utfRune := append([]byte{firstByte}, extraBytes...)
 			// append the finished character
 			utfBytes = append(utfBytes, utfRune...)
