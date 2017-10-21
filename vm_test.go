@@ -103,3 +103,35 @@ func TestHelloUnicode(t *testing.T) {
 		t.Error("Incorrect output, got: ", console.consoleOutput)
 	}
 }
+
+func TestDouble(t *testing.T) {
+	opcodes := []byte{
+		0x04, // pushd
+		0x18,
+		0x2D,
+		0x44,
+		0x54,
+		0xFB,
+		0x21,
+		0x09,
+		0x40, // pi (3.141592653589793)
+		0x43, // syscall
+		0x04, // print double
+		0x03, // pushi
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 0
+		0x43, // syscall
+		0x06, // exit
+	}
+	console := DummyConsole{}
+	RunVM(opcodes, &console)
+	if console.consoleOutput != "3.141592653589793" {
+		t.Error("Incorrect output, got: ", console.consoleOutput)
+	}
+}

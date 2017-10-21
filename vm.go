@@ -3,6 +3,7 @@ package schego
 import (
 	"bytes"
 	"encoding/binary"
+	"strconv"
 )
 
 // interface to write a null-terminated string to stdout
@@ -45,6 +46,22 @@ func (s *VMStack) PopInt() int64 {
 	// is a 64-bit integer
 	var num int64
 	binary.Read(bytes.NewBuffer(intBuffer), binary.LittleEndian, &num)
+	return num
+}
+
+func (s *VMStack) PushDouble(doubleBytes []byte) {
+	for _, doubleByte := range doubleBytes {
+		s.PushByte(doubleByte)
+	}
+}
+
+func (s *VMStack) PopDouble() float64 {
+	doubleBuffer := make([]byte, 8)
+	for i := 0; i < 8; i++ {
+		doubleBuffer = append([]byte{s.PopByte()}, doubleBuffer...)
+	}
+	var num float64
+	binary.Read(bytes.NewBuffer(doubleBuffer), binary.LittleEndian, &num)
 	return num
 }
 
@@ -119,6 +136,10 @@ func (v *VMState) Step() {
 		// simply grab the next 8 bytes and push them
 		intBytes := v.ReadBytes(8)
 		v.Stack.PushInt(intBytes)
+	case 0x04:
+		// pushd
+		doubleBytes := v.ReadBytes(8)
+		v.Stack.PushDouble(doubleBytes)
 	case 0x05:
 		// pushs
 		utfBytes := make([]byte, 0)
@@ -165,6 +186,10 @@ func (v *VMState) Step() {
 		// syscall
 		syscall := v.ReadBytes(1)[0]
 		switch syscall {
+		case 0x04:
+			doubleNum := v.Stack.PopDouble()
+			doubleString := strconv.FormatFloat(doubleNum, 'f', -1, 64)
+			v.Console.Write(doubleString)
 		case 0x05:
 			// print string
 			utfBytes := v.Stack.PopString()
