@@ -135,3 +135,53 @@ func TestDouble(t *testing.T) {
 		t.Error("Incorrect output, got: ", console.consoleOutput)
 	}
 }
+
+func TestUnconditionalJump(t *testing.T) {
+	opcodes := []byte{
+		0x03, // pushi
+		0x04,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 4
+		0x2C, // jmp
+		0x09,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 9 - skip the pushi below
+		0x03, // pushi
+		0xDE,
+		0xAD,
+		0xBE,
+		0xEF,
+		0xDE,
+		0xAD,
+		0xBE,
+		0xEF,
+		0x43, // syscall
+		0x03, // print integer (the 4 from earlier)
+		0x03, // pushi
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 0
+		0x43, // syscall
+		0x06, // exit
+	}
+	console := DummyConsole{}
+	RunVM(opcodes, &console)
+	if console.consoleOutput != "4" {
+		t.Error("Incorrect output, got: ", console.consoleOutput)
+	}
+}

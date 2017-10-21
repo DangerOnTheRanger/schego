@@ -3,6 +3,7 @@ package schego
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"strconv"
 )
 
@@ -182,11 +183,23 @@ func (v *VMState) Step() {
 			utfBytes = append(utfBytes, utfRune...)
 		}
 		v.Stack.PushString(utfBytes)
+	case 0x2C:
+		// jmp
+		addressBytes := v.ReadBytes(8)
+		var address int64
+		binary.Read(bytes.NewBuffer(addressBytes), binary.LittleEndian, &address)
+		v.opcodeBuffer.Seek(address, io.SeekCurrent)
 	case 0x43:
 		// syscall
 		syscall := v.ReadBytes(1)[0]
 		switch syscall {
+		case 0x03:
+			// print integer
+			intNum := v.Stack.PopInt()
+			intString := strconv.FormatInt(intNum, 10)
+			v.Console.Write(intString)
 		case 0x04:
+			// print double
 			doubleNum := v.Stack.PopDouble()
 			doubleString := strconv.FormatFloat(doubleNum, 'f', -1, 64)
 			v.Console.Write(doubleString)
