@@ -218,6 +218,14 @@ func (v *VMState) Step() {
 			// skip the jump address
 			v.opcodeBuffer.Seek(8, io.SeekCurrent)
 		}
+	case 0x36:
+		// addi
+		y := v.Stack.PopInt()
+		x := v.Stack.PopInt()
+		newInt := x + y
+		intBuffer := bytes.NewBuffer(make([]byte, 8))
+		binary.Write(intBuffer, binary.LittleEndian, &newInt)
+		v.Stack.PushInt(intBuffer.Bytes())
 	case 0x40:
 		// cmpi
 		y := v.Stack.PopInt()
