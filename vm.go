@@ -138,10 +138,14 @@ func (v *VMState) Step() {
 			// how many bytes to read, so construct some simple bitmasks
 			// to check
 			// see: https://en.wikipedia.org/wiki/UTF-8#Description
+			// essentially, check the upper four bits of the first byte,
+			// with 1111 meaning read 4 bytes total, 1110 3 bytes, and
+			// 1100, 2 bytes
 			var codepointLength int
-			if firstByte&0xC0 == 0xC0 {
+			upperFourBits := firstByte >> 4
+			if upperFourBits == 0xC {
 				codepointLength = 2
-			} else if firstByte&0xE0 == 0xE0 {
+			} else if upperFourBits == 0xE {
 				codepointLength = 3
 			} else {
 				// naively assume 4-byte codepoint length,
@@ -149,7 +153,9 @@ func (v *VMState) Step() {
 				// at some point in the future
 				codepointLength = 4
 			}
-			extraBytes := v.ReadBytes(codepointLength)
+			// we've already read one byte (firstByte)
+			numBytes := codepointLength - 1
+			extraBytes := v.ReadBytes(numBytes)
 			utfRune := append([]byte{firstByte}, extraBytes...)
 			// append the finished character
 			utfBytes = append(utfBytes, utfRune...)
