@@ -14,6 +14,12 @@ func (d *DummyConsole) Write(line string) {
 	d.consoleOutput = strings.TrimRight(line, "\x00")
 }
 
+func StepVM(vm *VMState, count int) {
+	for i := 0; i < count; i++ {
+		vm.Step()
+	}
+}
+
 func TestHelloWorld(t *testing.T) {
 	opcodes := []byte{
 		0x05, // pushs
@@ -183,5 +189,36 @@ func TestUnconditionalJump(t *testing.T) {
 	RunVM(opcodes, &console)
 	if console.consoleOutput != "4" {
 		t.Error("Incorrect output, got: ", console.consoleOutput)
+	}
+}
+
+func TestCompareInt(t *testing.T) {
+	opcodes := []byte{
+		0x03, // pushi (our x value)
+		0x0A,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 10
+		0x03, // pushi (our y value)
+		0x09,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x40, // cmpi
+	}
+	console := DummyConsole{}
+	vm := NewVM(opcodes, &console)
+	StepVM(vm, 3)
+	topByte := vm.Stack.PopByte()
+	if topByte != 1 {
+		t.Error("Incorrect output, got: ", topByte)
 	}
 }

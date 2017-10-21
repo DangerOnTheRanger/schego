@@ -189,6 +189,17 @@ func (v *VMState) Step() {
 		var address int64
 		binary.Read(bytes.NewBuffer(addressBytes), binary.LittleEndian, &address)
 		v.opcodeBuffer.Seek(address, io.SeekCurrent)
+	case 0x40:
+		// cmpi
+		y := v.Stack.PopInt()
+		x := v.Stack.PopInt()
+		if x == y {
+			v.Stack.PushByte(0)
+		} else if x > y {
+			v.Stack.PushByte(1)
+		} else {
+			v.Stack.PushByte(2)
+		}
 	case 0x43:
 		// syscall
 		syscall := v.ReadBytes(1)[0]
