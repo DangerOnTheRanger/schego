@@ -252,7 +252,7 @@ func TestJumpNotEqual(t *testing.T) {
 		0x00,
 		0x00,
 		0x00,
-		0x00, // 10 - skip the pushs, will(or should!) never happen
+		0x00, // 10 - skip the pushs, will (or should!) never happen
 		0x05, // pushs
 		0x4E, // N
 		0x6F, // o
@@ -281,5 +281,28 @@ func TestJumpNotEqual(t *testing.T) {
 	RunVM(opcodes, &console)
 	if console.consoleOutput != "No jump\n" {
 		t.Error("Incorrect output, got: ", console.consoleOutput)
+	}
+}
+
+func TestDup(t *testing.T) {
+	opcodes := []byte{
+		0x03, // pushi
+		0x07,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 7
+		0x07, // dup
+		0x40, // cmpi
+	}
+	console := DummyConsole{}
+	vm := NewVM(opcodes, &console)
+	StepVM(vm, 3)
+	topByte := vm.Stack.PopByte()
+	if topByte != 0 {
+		t.Error("Incorrect output, got: ", topByte)
 	}
 }

@@ -14,13 +14,15 @@ type VMConsole interface {
 
 // data structure to contain the stack for a single VM instance
 type VMStack struct {
-	byteStack []byte
-	len       int
+	byteStack     []byte
+	len           int64
+	lenLastPushed int64
 }
 
 func (s *VMStack) PushByte(newValue byte) {
 	s.byteStack = append(s.byteStack, newValue)
 	s.len += 1
+	s.lenLastPushed = 1
 }
 
 func (s *VMStack) PopByte() byte {
@@ -34,6 +36,7 @@ func (s *VMStack) PushInt(intBytes []byte) {
 	for _, intByte := range intBytes {
 		s.PushByte(intByte)
 	}
+	s.lenLastPushed = 8
 }
 
 func (s *VMStack) PopInt() int64 {
@@ -54,6 +57,7 @@ func (s *VMStack) PushDouble(doubleBytes []byte) {
 	for _, doubleByte := range doubleBytes {
 		s.PushByte(doubleByte)
 	}
+	s.lenLastPushed = 8
 }
 
 func (s *VMStack) PopDouble() float64 {
@@ -76,6 +80,7 @@ func (s *VMStack) PushString(runeBytes []byte) {
 	bufferLength := int64(len(runeBytes))
 	binary.Write(stringLength, binary.LittleEndian, bufferLength)
 	s.PushInt(stringLength.Bytes())
+	s.lenLastPushed = bufferLength
 }
 
 func (s *VMStack) PopString() []byte {
@@ -88,7 +93,15 @@ func (s *VMStack) PopString() []byte {
 	return utfBytes
 }
 
-func (s VMStack) Length() int {
+func (s *VMStack) Dup() {
+	lastValue := s.byteStack[s.Length()-s.lenLastPushed:]
+	for _, valueByte := range lastValue {
+		s.PushByte(valueByte)
+	}
+	s.lenLastPushed = int64(len(lastValue))
+}
+
+func (s VMStack) Length() int64 {
 	return s.len
 }
 
@@ -190,6 +203,9 @@ func (v *VMState) Step() {
 			utfBytes = append(utfBytes, utfRune...)
 		}
 		v.Stack.PushString(utfBytes)
+	case 0x07:
+		// dup
+		v.Stack.Dup()
 	case 0x2C:
 		// jmp
 		v.jump()
