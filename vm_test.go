@@ -222,3 +222,64 @@ func TestCompareInt(t *testing.T) {
 		t.Error("Incorrect output, got: ", topByte)
 	}
 }
+
+func TestJumpNotEqual(t *testing.T) {
+	opcodes := []byte{
+		0x03, // pushi
+		0x0C,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 12
+		0x03, // pushi
+		0x0C,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 12
+		0x40, // cmpi
+		0x2D, // jne
+		0x0A,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 10 - skip the pushs, will(or should!) never happen
+		0x05, // pushs
+		0x4E, // N
+		0x6F, // o
+		0x20, // space
+		0x6A, // j
+		0x75, // u
+		0x6D, // m
+		0x70, // p
+		0x0A, // \n
+		0x00, // null
+		0x43, // syscall
+		0x05, // print string
+		0x03, // pushi
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 0
+		0x43, // syscall
+		0x06, // exit
+	}
+	console := DummyConsole{}
+	RunVM(opcodes, &console)
+	if console.consoleOutput != "No jump\n" {
+		t.Error("Incorrect output, got: ", console.consoleOutput)
+	}
+}

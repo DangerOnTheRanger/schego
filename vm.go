@@ -125,6 +125,13 @@ func (v *VMState) ReadBytes(length int) []byte {
 	return byteBuffer
 }
 
+func (v *VMState) jump() {
+	addressBytes := v.ReadBytes(8)
+	var address int64
+	binary.Read(bytes.NewBuffer(addressBytes), binary.LittleEndian, &address)
+	v.opcodeBuffer.Seek(address, io.SeekCurrent)
+}
+
 func (v *VMState) Step() {
 	if v.CanStep() == false {
 		// TODO: properly handle finished VM
@@ -185,10 +192,16 @@ func (v *VMState) Step() {
 		v.Stack.PushString(utfBytes)
 	case 0x2C:
 		// jmp
-		addressBytes := v.ReadBytes(8)
-		var address int64
-		binary.Read(bytes.NewBuffer(addressBytes), binary.LittleEndian, &address)
-		v.opcodeBuffer.Seek(address, io.SeekCurrent)
+		v.jump()
+	case 0x2D:
+		// jne
+		cmpResult := v.Stack.PopByte()
+		if cmpResult != 0 {
+			v.jump()
+		} else {
+			// skip the jump address
+			v.opcodeBuffer.Seek(8, io.SeekCurrent)
+		}
 	case 0x40:
 		// cmpi
 		y := v.Stack.PopInt()
