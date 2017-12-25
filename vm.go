@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"math"
 	"strconv"
 )
 
@@ -105,9 +106,200 @@ func (s VMStack) Length() int64 {
 	return s.len
 }
 
+var initialHeapSize uint64 = 16384
+var blockSize uint64 = 32
+var maxOrder uint8 = 10
+
+type VMHeap struct {
+	heapSpace    []byte
+	unusedBlocks map[uint8][]uint64
+	blockMap     map[uint64]uint8
+}
+
+func NewVMHeap() *VMHeap {
+	h := new(VMHeap)
+	h.heapSpace = make([]byte, initialHeapSize)
+	h.blockMap = make(map[uint64]uint8)
+	h.unusedBlocks = make(map[uint8][]uint64)
+	for i := uint8(0); i <= maxOrder; i++ {
+		h.unusedBlocks[i] = make([]uint64, 0)
+	}
+	h.AllocateRootBlock(initialHeapSize)
+	return h
+}
+
+func (h *VMHeap) Allocate(numBytes uint64) uint64 {
+	order := h.OrderFor(numBytes)
+	if h.NoFreeBlocksFor(order) {
+		h.CreateBlock(order)
+	}
+	blockAddress := h.GetFreeBlock(order)
+	// GetFreeBlock always returns the first/0th free block,
+	// so remove that one
+	h.RemoveBlockFromUnused(0, order)
+	return blockAddress
+}
+
+func (h *VMHeap) Free(address uint64) {
+	order := h.blockMap[address]
+	// add the newly freed block back to the list of unused blocks
+	// MergeWithBuddy will take care of removing it if need be due to merging
+	h.unusedBlocks[order] = append(h.unusedBlocks[order], address)
+	if h.HasBuddy(address, order) {
+		h.MergeWithBuddy(address, order)
+	}
+}
+
+func (h *VMHeap) Write(data bytes.Buffer, address uint64) {
+	// making sure that no data is accidentally overwritten is left
+	// as an exercise to the caller
+	for index, dataByte := range data.Bytes() {
+		h.heapSpace[address+uint64(index)] = dataByte
+	}
+}
+
+func (h *VMHeap) Read(numBytes uint64, address uint64) *bytes.Buffer {
+	buffer := new(bytes.Buffer)
+	for i := uint64(0); i < numBytes; i++ {
+		buffer.WriteByte(h.heapSpace[i])
+	}
+	return buffer
+}
+
+func (h *VMHeap) AllocateRootBlock(heapSize uint64) {
+	order := h.OrderFor(heapSize)
+	h.unusedBlocks[order] = append(h.unusedBlocks[order], 0)
+	h.blockMap[0] = order
+}
+
+func (h *VMHeap) OrderFor(requestedBytes uint64) uint8 {
+	// this all feels extremely silly
+	// is there a better/faster solution?
+	var order uint8
+	order = 0
+	var equivalentBytes uint64
+	equivalentBytes = blockSize
+	// TODO: handle requests past maxOrder gracefully
+	for equivalentBytes < requestedBytes {
+		order += 1
+		equivalentBytes = uint64(math.Pow(2, float64(order)) * float64(blockSize))
+	}
+	return order
+}
+
+func (h *VMHeap) NoFreeBlocksFor(order uint8) bool {
+	return len(h.unusedBlocks[order]) == 0
+}
+
+func (h *VMHeap) CreateBlock(order uint8) {
+	// find smallest order that we can pull from
+	freeOrder := order + 1
+	for {
+		if h.NoFreeBlocksFor(freeOrder) {
+			freeOrder += 1
+		} else {
+			break
+		}
+	}
+	// repeatedly split blocks until we get one (technically, two) of the order we originally wanted
+	for freeOrder > order {
+		blockAddress := h.GetFreeBlock(freeOrder)
+		h.SplitBlock(blockAddress, freeOrder)
+		freeOrder -= 1
+	}
+}
+
+func (h *VMHeap) GetFreeBlock(order uint8) uint64 {
+	// return the address of the first free block of the given order
+	return h.unusedBlocks[order][0]
+}
+
+func (h *VMHeap) SplitBlock(address uint64, order uint8) {
+	// find and remove block from the unused list, since
+	// we're about to split it
+	targetIndex := 0
+	for index, candidateAddress := range h.unusedBlocks[order] {
+		if candidateAddress == address {
+			targetIndex = index
+			break
+		}
+	}
+	h.RemoveBlockFromUnused(targetIndex, order)
+	targetOrder := order - 1
+	// calculate offset from the start of the original block
+	// adding the second address to the list of unused blocks puts smaller blocks out
+	// at the end of the heap
+	secondAddress := address + uint64(math.Pow(2, float64(targetOrder))*float64(blockSize))
+	h.unusedBlocks[targetOrder] = append(h.unusedBlocks[targetOrder], secondAddress)
+	h.blockMap[secondAddress] = targetOrder
+	h.unusedBlocks[targetOrder] = append(h.unusedBlocks[targetOrder], address)
+	h.blockMap[address] = targetOrder
+}
+
+func (h *VMHeap) GetUnusedBlockIndex(address uint64, order uint8) int {
+	for index, candidateAddress := range h.unusedBlocks[order] {
+		if candidateAddress == address {
+			return index
+		}
+	}
+	return -1
+}
+
+func (h *VMHeap) RemoveBlockFromUnused(index int, order uint8) {
+	h.unusedBlocks[order] = append(h.unusedBlocks[order][:index], h.unusedBlocks[order][index+1:]...)
+}
+
+func (h *VMHeap) HasBuddy(address uint64, order uint8) bool {
+	buddyAddress := h.GetBuddyAddress(address, order)
+	for _, candidateAddress := range h.unusedBlocks[order] {
+		if candidateAddress == buddyAddress {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *VMHeap) GetBuddyAddress(address uint64, order uint8) uint64 {
+	// buddy address calculation taken from http://www.cs.uml.edu/~jsmith/OSReport/frames.html
+	totalBlockSize := uint64(math.Pow(2, float64(order)) * float64(blockSize))
+	buddyNumber := address / totalBlockSize
+	var buddyAddress uint64
+	if buddyNumber%2 == 0 {
+		buddyAddress = address + totalBlockSize
+	} else {
+		buddyAddress = address - totalBlockSize
+	}
+	return buddyAddress
+}
+
+func (h *VMHeap) MergeWithBuddy(address uint64, order uint8) {
+	buddyAddress := h.GetBuddyAddress(address, order)
+	// figure out which address is lower and delete the other block
+	// take the lower address for the new merged block
+	var newAddress uint64
+	if buddyAddress < address {
+		newAddress = buddyAddress
+		delete(h.blockMap, address)
+	} else {
+		newAddress = address
+		delete(h.blockMap, buddyAddress)
+	}
+	buddyIndex := h.GetUnusedBlockIndex(buddyAddress, order)
+	h.RemoveBlockFromUnused(buddyIndex, order)
+	blockIndex := h.GetUnusedBlockIndex(address, order)
+	h.RemoveBlockFromUnused(blockIndex, order)
+	h.blockMap[newAddress] = order + 1
+	h.unusedBlocks[order+1] = append(h.unusedBlocks[order+1], newAddress)
+	// recurse if we still have potential merging left undone
+	if h.HasBuddy(newAddress, order+1) {
+		h.MergeWithBuddy(newAddress, order+1)
+	}
+}
+
 type VMState struct {
 	Stack        VMStack
 	Console      VMConsole
+	Heap         VMHeap
 	opcodes      []byte
 	opcodeBuffer bytes.Reader
 	finished     bool
@@ -274,6 +466,7 @@ func NewVM(opcodes []byte, console VMConsole) *VMState {
 	vm.opcodes = opcodes
 	vm.opcodeBuffer = *bytes.NewReader(vm.opcodes)
 	vm.Console = console
+	vm.Heap = *NewVMHeap()
 	return vm
 }
 
