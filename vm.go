@@ -16,8 +16,8 @@ type VMConsole interface {
 // data structure to contain the stack for a single VM instance
 type VMStack struct {
 	byteStack     []byte
-	len           int64
-	lenLastPushed int64
+	len           uint64
+	lenLastPushed uint64
 }
 
 func (s *VMStack) PushByte(newValue byte) {
@@ -78,7 +78,7 @@ func (s *VMStack) PushString(runeBytes []byte) {
 	// push the length of the string (in bytes) onto the stack,
 	// so we know how many bytes to pop when attempting to utilize it
 	stringLength := new(bytes.Buffer)
-	bufferLength := int64(len(runeBytes))
+	bufferLength := uint64(len(runeBytes))
 	binary.Write(stringLength, binary.LittleEndian, bufferLength)
 	s.PushInt(stringLength.Bytes())
 	s.lenLastPushed = bufferLength
@@ -95,14 +95,14 @@ func (s *VMStack) PopString() []byte {
 }
 
 func (s *VMStack) Dup() {
-	lastValue := s.byteStack[s.Length()-s.lenLastPushed:]
+	lastValue := s.byteStack[uint64(s.Length())-s.lenLastPushed:]
 	for _, valueByte := range lastValue {
 		s.PushByte(valueByte)
 	}
-	s.lenLastPushed = int64(len(lastValue))
+	s.lenLastPushed = uint64(len(lastValue))
 }
 
-func (s VMStack) Length() int64 {
+func (s VMStack) Length() uint64 {
 	return s.len
 }
 
@@ -150,7 +150,7 @@ func (h *VMHeap) Free(address uint64) {
 	}
 }
 
-func (h *VMHeap) Write(data bytes.Buffer, address uint64) {
+func (h *VMHeap) Write(data *bytes.Buffer, address uint64) {
 	// making sure that no data is accidentally overwritten is left
 	// as an exercise to the caller
 	for index, dataByte := range data.Bytes() {
@@ -161,7 +161,7 @@ func (h *VMHeap) Write(data bytes.Buffer, address uint64) {
 func (h *VMHeap) Read(numBytes uint64, address uint64) *bytes.Buffer {
 	buffer := new(bytes.Buffer)
 	for i := uint64(0); i < numBytes; i++ {
-		buffer.WriteByte(h.heapSpace[i])
+		buffer.WriteByte(h.heapSpace[address+uint64(i)])
 	}
 	return buffer
 }
@@ -298,8 +298,9 @@ func (h *VMHeap) MergeWithBuddy(address uint64, order uint8) {
 
 type VMState struct {
 	Stack        VMStack
-	Console      VMConsole
 	Heap         VMHeap
+	Console      VMConsole
+	mnemonicMap  map[string]uint64
 	opcodes      []byte
 	opcodeBuffer bytes.Reader
 	finished     bool
@@ -398,6 +399,25 @@ func (v *VMState) Step() {
 	case 0x07:
 		// dup
 		v.Stack.Dup()
+	case 0x0A:
+		// hstorei
+		mnemonic := string(v.ReadBytes(2))
+		address := v.mnemonicMap[mnemonic]
+		num := v.Stack.PopInt()
+		intBuffer := bytes.NewBuffer(make([]byte, 0))
+		binary.Write(intBuffer, binary.LittleEndian, &num)
+		v.Heap.Write(intBuffer, address)
+	case 0x16:
+		// hloadi
+		mnemonic := string(v.ReadBytes(2))
+		address := v.mnemonicMap[mnemonic]
+		buffer := v.Heap.Read(8, address)
+		v.Stack.PushInt(buffer.Bytes())
+	case 0x22:
+		// hnewi
+		mnemonic := string(v.ReadBytes(2))
+		address := v.Heap.Allocate(8)
+		v.mnemonicMap[mnemonic] = address
 	case 0x2C:
 		// jmp
 		v.jump()
@@ -467,6 +487,7 @@ func NewVM(opcodes []byte, console VMConsole) *VMState {
 	vm.opcodeBuffer = *bytes.NewReader(vm.opcodes)
 	vm.Console = console
 	vm.Heap = *NewVMHeap()
+	vm.mnemonicMap = make(map[string]uint64)
 	return vm
 }
 

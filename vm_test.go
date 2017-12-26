@@ -409,3 +409,53 @@ func TestJumpReverse(t *testing.T) {
 		t.Error("Incorrect output, got: ", console.consoleOutput)
 	}
 }
+
+func TestHeapInt(t *testing.T) {
+	opcodes := []byte{
+		0x22, // hnewi
+		0xBE,
+		0xEF, // 2-byte reference mnemonic (0xBEEF)
+		0x03, // pushi
+		0x0A,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 10
+		0x0A, // hstorei
+		0xBE,
+		0xEF, // 0xBEEF
+		0x03, // pushi
+		0xFF,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 255
+		0x16, // hloadi
+		0xBE,
+		0xEF, // 0xBEEF
+		0x43, // syscall
+		0x03, // print integer
+		0x03, // pushi
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 0
+		0x43, // syscall
+		0x06, // exit
+	}
+	console := DummyConsole{}
+	RunVM(opcodes, &console)
+	if console.consoleOutput != "10" {
+		t.Error("Incorrect output, got: ", console.consoleOutput)
+	}
+}
