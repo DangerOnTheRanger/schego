@@ -459,3 +459,68 @@ func TestHeapInt(t *testing.T) {
 		t.Error("Incorrect output, got: ", console.consoleOutput)
 	}
 }
+
+func TestHeapString(t *testing.T) {
+	opcodes := []byte{
+		0x03, // pushi
+		0x06,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 6
+		0x24, // hnews
+		0xBE,
+		0XEF, // reference mnemonic - 0xBEEF
+		0x05, // pushs
+		0x53, // S
+		0x68, // h
+		0x6F, // o
+		0x72, // r
+		0x74, // t
+		0x00, // null
+		0x0C, // hstores
+		0xBE,
+		0xEF, // reference mnemonic - 0xBEEF
+		0x05, // pushs
+		0x4C, // L
+		0x6F, // o
+		0x6E, // n
+		0x67, // g
+		0x65, // e
+		0x72, // r
+		0x00, // null
+		0x0C, // hstores
+		0xBE,
+		0xEF, // reference mnemonic - oxBEEF
+		0x05, // pushs
+		0x4A, // J
+		0x75, // u
+		0x6E, // n
+		0x6B, // k
+		0x00, // null
+		0x18, // hloads
+		0xBE,
+		0xEF, // reference mnemonic - 0xBEEF
+		0x43, // syscall
+		0x05, // print string
+		0x03, // pushi
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 0
+		0x43, // syscall
+		0x06, // exit
+	}
+	console := DummyConsole{}
+	RunVM(opcodes, &console)
+	if console.consoleOutput != "Longer" {
+		t.Error("Incorrect output, got: ", console.consoleOutput)
+	}
+}

@@ -166,6 +166,14 @@ func (h *VMHeap) Read(numBytes uint64, address uint64) *bytes.Buffer {
 	return buffer
 }
 
+func (h *VMHeap) ReadString(address uint64) []byte {
+	strBytes := make([]byte, 0)
+	for i := uint64(0); h.heapSpace[address+i] != 0; i++ {
+		strBytes = append(strBytes, h.heapSpace[address+i])
+	}
+	return strBytes
+}
+
 func (h *VMHeap) AllocateRootBlock(heapSize uint64) {
 	order := h.OrderFor(heapSize)
 	h.unusedBlocks[order] = append(h.unusedBlocks[order], 0)
@@ -407,17 +415,59 @@ func (v *VMState) Step() {
 		intBuffer := bytes.NewBuffer(make([]byte, 0))
 		binary.Write(intBuffer, binary.LittleEndian, &num)
 		v.Heap.Write(intBuffer, address)
+	case 0x0C:
+		// hstores
+		mnemonic := string(v.ReadBytes(2))
+		address := v.mnemonicMap[mnemonic]
+		strBytes := v.Stack.PopString()
+		var strBuffer bytes.Buffer
+		numBytes, _ := strBuffer.Write(strBytes)
+		numBytes64 := uint64(numBytes)
+		var allocatedBytes uint64
+		binary.Read(v.Heap.Read(8, address), binary.LittleEndian, &allocatedBytes)
+		if numBytes64 > allocatedBytes {
+			v.Heap.Free(address)
+			newAddress := v.Heap.Allocate(8 + numBytes64)
+			v.mnemonicMap[mnemonic] = newAddress
+			intBuffer := bytes.NewBuffer(make([]byte, 0))
+			binary.Write(intBuffer, binary.LittleEndian, &numBytes64)
+			v.Heap.Write(intBuffer, newAddress)
+			// offset by 8 to avoid writing over the int we just wrote
+			v.Heap.Write(&strBuffer, newAddress+8)
+		} else {
+			v.Heap.Write(&strBuffer, address+8)
+		}
 	case 0x16:
 		// hloadi
 		mnemonic := string(v.ReadBytes(2))
 		address := v.mnemonicMap[mnemonic]
 		buffer := v.Heap.Read(8, address)
 		v.Stack.PushInt(buffer.Bytes())
+	case 0x18:
+		// hloads
+		mnemonic := string(v.ReadBytes(2))
+		address := v.mnemonicMap[mnemonic]
+		// offset by 8 to avoid reading intial int containing storage info
+		buffer := v.Heap.ReadString(address + 8)
+		v.Stack.PushString(buffer)
 	case 0x22:
 		// hnewi
 		mnemonic := string(v.ReadBytes(2))
 		address := v.Heap.Allocate(8)
 		v.mnemonicMap[mnemonic] = address
+	case 0x24:
+		// hnews
+		mnemonic := string(v.ReadBytes(2))
+		initialMemory := v.Stack.PopInt()
+		// allocate space for an int storing how many bytes was allocated
+		// for the string, in addition to the inital memory requested
+		address := v.Heap.Allocate(8 + uint64(initialMemory))
+		v.mnemonicMap[mnemonic] = address
+		// record the amount of string-only memory requested in the heap
+		// this is useful if/when we try to resize the string later
+		intBuffer := bytes.NewBuffer(make([]byte, 0))
+		binary.Write(intBuffer, binary.LittleEndian, &initialMemory)
+		v.Heap.Write(intBuffer, address)
 	case 0x2C:
 		// jmp
 		v.jump()
