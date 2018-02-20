@@ -41,7 +41,7 @@ func (s *VMStack) PushInt(intBytes []byte) {
 }
 
 func (s *VMStack) PopInt() int64 {
-	intBuffer := make([]byte, 8)
+	intBuffer := make([]byte, 0)
 	for i := 0; i < 8; i++ {
 		// insert at the front to make up for pushing the bytes
 		// onto the stack in reverse order
@@ -62,7 +62,7 @@ func (s *VMStack) PushDouble(doubleBytes []byte) {
 }
 
 func (s *VMStack) PopDouble() float64 {
-	doubleBuffer := make([]byte, 8)
+	doubleBuffer := make([]byte, 0)
 	for i := 0; i < 8; i++ {
 		doubleBuffer = append([]byte{s.PopByte()}, doubleBuffer...)
 	}
@@ -92,6 +92,34 @@ func (s *VMStack) PopString() []byte {
 		utfBytes = append([]byte{s.PopByte()}, utfBytes...)
 	}
 	return utfBytes
+}
+
+func (s *VMStack) PushEmptyCell() {
+	// push the equivalent of an empty list cell onto the stack
+	zeroBuf := make([]byte, 8)
+	s.PushInt(zeroBuf)
+	s.PushInt(zeroBuf)
+	s.PushInt(zeroBuf)
+	// set lenLastPushed for compatibility with dup
+	s.lenLastPushed = 24
+}
+
+func (s *VMStack) PushCell(cell []byte) {
+	nextCell := cell[16:]
+	s.PushInt(nextCell)
+	dataAddress := cell[8:16]
+	s.PushInt(dataAddress)
+	dataLength := cell[:8]
+	s.PushInt(dataLength)
+	s.lenLastPushed = 24
+}
+
+func (s *VMStack) PopCell() []uint64 {
+	cell := make([]uint64, 0)
+	for i := 0; i < 3; i++ {
+		cell = append(cell, uint64(s.PopInt()))
+	}
+	return cell
 }
 
 func (s *VMStack) Dup() {
@@ -404,6 +432,9 @@ func (v *VMState) Step() {
 			utfBytes = append(utfBytes, utfRune...)
 		}
 		v.Stack.PushString(utfBytes)
+	case 0x06:
+		// cons
+		v.Stack.PushEmptyCell()
 	case 0x07:
 		// dup
 		v.Stack.Dup()
@@ -437,6 +468,16 @@ func (v *VMState) Step() {
 		} else {
 			v.Heap.Write(&strBuffer, address+8)
 		}
+	case 0x0D:
+		// hstorel
+		mnemonic := string(v.ReadBytes(2))
+		address := v.mnemonicMap[mnemonic]
+		cell := v.Stack.PopCell()
+		for i := uint64(0); i < 3; i++ {
+			buffer := bytes.NewBuffer(make([]byte, 0))
+			binary.Write(buffer, binary.LittleEndian, &cell[i])
+			v.Heap.Write(buffer, address+8*i)
+		}
 	case 0x16:
 		// hloadi
 		mnemonic := string(v.ReadBytes(2))
@@ -450,6 +491,12 @@ func (v *VMState) Step() {
 		// offset by 8 to avoid reading intial int containing storage info
 		buffer := v.Heap.ReadString(address + 8)
 		v.Stack.PushString(buffer)
+	case 0x19:
+		// hloadl
+		mnemonic := string(v.ReadBytes(2))
+		address := v.mnemonicMap[mnemonic]
+		buffer := v.Heap.Read(24, address)
+		v.Stack.PushCell(buffer.Bytes())
 	case 0x22:
 		// hnewi
 		mnemonic := string(v.ReadBytes(2))
@@ -468,6 +515,11 @@ func (v *VMState) Step() {
 		intBuffer := bytes.NewBuffer(make([]byte, 0))
 		binary.Write(intBuffer, binary.LittleEndian, &initialMemory)
 		v.Heap.Write(intBuffer, address)
+	case 0x25:
+		// hnewl
+		mnemonic := string(v.ReadBytes(2))
+		address := v.Heap.Allocate(24)
+		v.mnemonicMap[mnemonic] = address
 	case 0x2C:
 		// jmp
 		v.jump()
@@ -485,7 +537,7 @@ func (v *VMState) Step() {
 		y := v.Stack.PopInt()
 		x := v.Stack.PopInt()
 		newInt := x + y
-		intBuffer := bytes.NewBuffer(make([]byte, 8))
+		intBuffer := bytes.NewBuffer(make([]byte, 0))
 		binary.Write(intBuffer, binary.LittleEndian, &newInt)
 		v.Stack.PushInt(intBuffer.Bytes())
 	case 0x40:
@@ -524,6 +576,69 @@ func (v *VMState) Step() {
 			v.exitCode = exitCode
 			v.finished = true
 		}
+	case 0x44:
+		// hsmem
+		mnemonic := string(v.ReadBytes(2))
+		sourceMnemonic := string(v.ReadBytes(2))
+		v.mnemonicMap[mnemonic] = v.mnemonicMap[sourceMnemonic]
+	case 0x46:
+		// cmpl
+		firstAddress := v.Stack.PopCell()[1]
+		secondAddress := v.Stack.PopCell()[1]
+		if firstAddress == secondAddress {
+			v.Stack.PushByte(0)
+		} else if firstAddress > secondAddress {
+			v.Stack.PushByte(1)
+		} else {
+			v.Stack.PushByte(2)
+		}
+	case 0x47:
+		// hcar
+		cell := v.Stack.PopCell()
+		numBytes := cell[0]
+		dataAddress := cell[1]
+		cellData := v.Heap.Read(numBytes, dataAddress).Bytes()
+		for i := uint64(0); i < numBytes; i++ {
+			v.Stack.PushByte(cellData[numBytes-i-1])
+		}
+		// hack to get VMStack.lenLastPushed to play nicely with hcar
+		// should probably be replaced with a dedicated method on
+		// VMStack in the future (PushCellData?)
+		v.Stack.lenLastPushed = numBytes
+	case 0x49:
+		// hcdr
+		headCell := v.Stack.PopCell()
+		cdrAddress := headCell[2]
+		v.Stack.PushCell(v.Heap.Read(24, cdrAddress).Bytes())
+	case 0x4B:
+		// hscar
+		data := make([]byte, 0)
+		dataLength := v.Stack.lenLastPushed
+		for i := uint64(0); i < dataLength; i++ {
+			data = append(data, v.Stack.PopByte())
+		}
+		cell := v.Stack.PopCell()
+		allocatedBytes := cell[0]
+		dataAddress := cell[1]
+		if dataLength > allocatedBytes {
+			v.Heap.Free(dataAddress)
+			dataAddress = v.Heap.Allocate(dataLength)
+			cell[1] = dataAddress
+			cell[0] = dataLength
+		}
+		v.Heap.Write(bytes.NewBuffer(data), dataAddress)
+		cellBuffer := bytes.NewBuffer(make([]byte, 0))
+		binary.Write(cellBuffer, binary.LittleEndian, cell)
+		v.Stack.PushCell(cellBuffer.Bytes())
+	case 0x4D:
+		// hscdr
+		mnemonic := string(v.ReadBytes(2))
+		address := v.mnemonicMap[mnemonic]
+		cell := v.Stack.PopCell()
+		cell[2] = address
+		cellBuffer := bytes.NewBuffer(make([]byte, 0))
+		binary.Write(cellBuffer, binary.LittleEndian, cell)
+		v.Stack.PushCell(cellBuffer.Bytes())
 	}
 }
 

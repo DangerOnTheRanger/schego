@@ -494,7 +494,7 @@ func TestHeapString(t *testing.T) {
 		0x00, // null
 		0x0C, // hstores
 		0xBE,
-		0xEF, // reference mnemonic - oxBEEF
+		0xEF, // reference mnemonic - 0xBEEF
 		0x05, // pushs
 		0x4A, // J
 		0x75, // u
@@ -521,6 +521,152 @@ func TestHeapString(t *testing.T) {
 	console := DummyConsole{}
 	RunVM(opcodes, &console)
 	if console.consoleOutput != "Longer" {
+		t.Error("Incorrect output, got: ", console.consoleOutput)
+	}
+}
+
+func TestListSum(t *testing.T) {
+	// create a list containing the values 1, 2, and 3,
+	// and sum them up
+	// mnemonics:
+	// 0xBEEF - 1st list cell/list head
+	// 0xDEAD - 2nd list cell
+	// 0xFACE - 3rd list cell
+	// 0xACED - sum counter
+	opcodes := []byte{
+		0x25, // hnewl
+		0xBE,
+		0xEF, // reference mnemonic - 0xBEEF
+		0x06, // cons
+		0x03, // pushi
+		0x01,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 1
+		0x4B, // hscar
+		0x0D, // hstorel
+		0xBE,
+		0xEF, // reference mnemonic - 0xBEEF
+		0x25, // hnewl
+		0xDE,
+		0xAD, // reference mnemonic - 0xDEAD
+		0x06, // cons
+		0x03, // pushi
+		0x02,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 2
+		0x4B, // hscar
+		0x0D, // hstorel
+		0xDE,
+		0xAD, // reference mnemonic - 0xDEAD
+		0x19, // hloadl
+		0xBE,
+		0xEF, // reference mnemonic - 0xBEEF
+		0x4D, // hscdr
+		0xDE,
+		0xAD, // reference mnemonic - 0xDEAD
+		0x0D, // hstorel
+		0xBE,
+		0xEF, // reference mnemonic - 0xBEEF
+		0x25, //  hnewl
+		0xFA,
+		0xCE, // reference mnemonic - 0xFACE
+		0x06, // cons
+		0x03, // pushi
+		0x03,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 3
+		0x4B, // hscar
+		0x0D, // hstorel
+		0xFA,
+		0xCE, // reference mnemonic - 0xFACE
+		0x19, // hloadl
+		0xDE,
+		0xAD, // reference mnemonic - 0xDEAD
+		0x4D, // hscdr
+		0xFA,
+		0xCE, // reference mnemonic - 0xFACE
+		0x0D, // hstorel
+		0xDE,
+		0xAD, // reference mnemonic - 0xDEAD
+		0x22, // hnewi
+		0xAC,
+		0xED, // reference mnemonic - 0xACED
+		// zero out our allocated memory, as we are not
+		// currently guaranteed any new memory will be zeroed
+		0x03, // pushi
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 0
+		0x0A, // hstorei
+		0xAC,
+		0xED, // reference mnemonic - 0xACED
+		0x19, // hloadl
+		0xBE,
+		0xEF, // reference mnemonic - 0xBEEF
+		// use dup/hcdr to leave the list cells on the stack
+		// in reverse sequential order (3-2-1 from top to bottom, and not 1-2-3)
+		0x07, // dup
+		0x49, // hcdr
+		0x07, // dup
+		0x49, // hcdr
+		0x47, // hcar
+		0x16, // hloadi
+		0xAC,
+		0xED, // reference mnemonic - 0xACED
+		0x36, // addi
+		0x0A, // hstorei
+		0xAC,
+		0xED, // reference mnemonic - 0xACED
+		0x47, // hcar
+		0x16, // hloadi
+		0xAC,
+		0xED, // reference mnemonic - 0xACED
+		0x36, // addi
+		0x0A, // hstorei
+		0xAC,
+		0xED, // reference mnemonic - 0xACED
+		0x47, // hcar
+		0x16, // hloadi
+		0xAC,
+		0xED, // reference mnemonic - 0xACED
+		0x36, // addi
+		0x43, // syscall
+		0x03, // print integer
+		0x03, // pushi
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00,
+		0x00, // 0
+		0x43, // syscall
+		0x06, // exit
+	}
+	console := DummyConsole{}
+	RunVM(opcodes, &console)
+	if console.consoleOutput != "6" {
 		t.Error("Incorrect output, got: ", console.consoleOutput)
 	}
 }

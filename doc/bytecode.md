@@ -54,11 +54,11 @@ Opcode: **0x05**
 Pushes a null-terminated UTF-8 string onto the stack.
 Every 8 bytes up until a null terminator is found is considered part of the string.
 *Warning:* The behavior of this opcode if **pushs** does not find a null terminator is undefined!
-## pushl
+
+## cons
 Opcode: **0x06**
 
-Pushes a list onto the stack, popping the stack for references to the list's contents.
-The 8 bytes immediately following the opcode indicate how many references to pop.
+Pushes an empty list cell onto the stack.
 
 ## dup
 Opcode: **0x07**
@@ -70,30 +70,35 @@ Opcode: **0x08**
 Stores a boolean from the top of the stack in the heap.
 The next 8 bytes immediately following this instruction represent the reference in heap memory
 that the value should be stored in.
+
 ## hstorec
 Opcode: **0x09**
 
 Stores a UTF-8 character from the top of the stack in the heap.
 The next 8 bytes immediately following this instruction represent the reference in heap memory
 that the value shold be stored in.
+
 ## hstorei
 Opcode: **0x0A**
 
 Stores a 64-bit integer from the top of the stack in the heap.
 The next 8 bytes immediately following this instruction represent the reference in heap memory
 that the value shold be stored in.
+
 ## hstored
 Opcode: **0x0B**
 
 Stores a 64-bit double precision float from the top of the stack in the heap.
 The next 8 bytes immediately following this instruction represent the reference in heap memory
 that the value shold be stored in.
+
 ## hstores
 Opcode: **0x0C**
 
 Stores a null-terminated UTF-8 string from the top of the stack in the heap.
 The next 8 bytes immediately following this instruction represent the reference in heap memory
 that the value shold be stored in.
+
 ## hstorel
 Opcode: **0x0D**
 
@@ -119,18 +124,21 @@ Opcode: **0x10**
 Stores a 64-bit integer from the top of the stack in the local frame.
 The next 4 bytes immediately following this instruction represent the reference in local memory
 that the value shold be stored in.
+
 ## lstored
 Opcode: **0x11**
 
 Stores a 64-bit double precision float from the top of the stack in the local frame.
 The next 4 bytes immediately following this instruction represent the reference in local memory
 that the value shold be stored in.
+
 ## lstores
 Opcode: **0x12**
 
 Stores a UTF-8 null-terminated string from the top of the stack in the local frame.
 The next 4 bytes immediately following this instruction represent the reference in local memory
 that the value shold be stored in.
+
 ## lstorel
 Opcode: **0x13**
 
@@ -255,3 +263,41 @@ which are taken from the stack. The set of valid syscalls are:
 * **0x04** Print double from the stack to standard output.
 * **0x05** Print string from the stack to standard output.
 * **0x06** Exits the interpreter. The top integer on the stack is used for the return code.
+
+## hsmnem
+Opcode: **0x44**
+
+Sets the 2-byte mnemonic reference immediately following the opcode to the address of the
+second 2-byte mnemonic reference.
+
+## lsmnem
+Opcode: **0x45**
+
+## cmpl
+Opcode: **0x46**
+
+Compares the data addresses of two list cells.
+
+## hcar
+Opcode: **0x47**
+
+## lcar
+Opcode: **0x48**
+
+## hcdr
+Opcode: **0x49**
+
+## lcdr
+Opcode: **0x4A**
+
+## hscar
+Opcode: **0x4B**
+
+## lscar
+Opcode: **0x4C**
+
+## hscdr
+Opcode: **0x4D**
+
+## lscdr
+Opcode: **0x4E**
