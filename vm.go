@@ -551,6 +551,17 @@ func (v *VMState) Step() {
 		} else {
 			v.Stack.PushByte(2)
 		}
+	case 0x41:
+		// cmpd
+		y := v.Stack.PopDouble()
+		x := v.Stack.PopDouble()
+		if x == y {
+			v.Stack.PushByte(0)
+		} else if x > y {
+			v.Stack.PushByte(1)
+		} else {
+			v.Stack.PushByte(2)
+		}
 	case 0x43:
 		// syscall
 		syscall := v.ReadBytes(1)[0]
