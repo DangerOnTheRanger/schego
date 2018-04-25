@@ -215,7 +215,7 @@ func (h *VMHeap) OrderFor(requestedBytes uint64) uint8 {
 	// TODO: handle requests past maxOrder gracefully
 	// this is ugly, but kinda fast, and less stupid than the old solution
 	var order uint8
-	order = uint8(math.Ceil(math.Log2(float64(requestedBytes)) - math.Log2(float64(blockSize))))
+	order = uint8(math.Log2(float64(requestedBytes)) - math.Log2(float64(blockSize)))
 	return order
 }
 
