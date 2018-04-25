@@ -209,17 +209,13 @@ func (h *VMHeap) AllocateRootBlock(heapSize uint64) {
 }
 
 func (h *VMHeap) OrderFor(requestedBytes uint64) uint8 {
-	// this all feels extremely silly
-	// is there a better/faster solution?
-	var order uint8
-	order = 0
-	var equivalentBytes uint64
-	equivalentBytes = blockSize
-	// TODO: handle requests past maxOrder gracefully
-	for equivalentBytes < requestedBytes {
-		order += 1
-		equivalentBytes = uint64(math.Pow(2, float64(order)) * float64(blockSize))
+	if(requestedBytes <= blockSize) {
+		return 0
 	}
+	// TODO: handle requests past maxOrder gracefully
+	// this is ugly, but kinda fast, and less stupid than the old solution
+	var order uint8
+	order = uint8(math.Ceil(math.Log2(float64(requestedBytes)) - math.Log2(float64(blockSize))))
 	return order
 }
 
